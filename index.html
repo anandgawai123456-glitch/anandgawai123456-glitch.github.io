@@ -179,6 +179,11 @@ footer{padding:110px 0 56px; text-align:center;}
 .contact-list a:hover{color:var(--orange); border-color:var(--orange);}
 .foot-note{margin-top:70px; padding-top:20px; border-top:1px solid var(--line); font-family:var(--font-mono); font-size:11px; color:var(--muted); letter-spacing:0.5px;}
 
+/* ---------- ATV TERRAIN LAYER (top-down, whole page) ---------- */
+#atv-canvas{position:fixed; inset:0; width:100%; height:100%; z-index:60; pointer-events:none;}
+@media(max-width:699px){#atv-canvas{display:none;}}
+@media(prefers-reduced-motion: reduce){#atv-canvas{display:none;}}
+
 @media(prefers-reduced-motion: reduce){
   *{animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition:none !important; scroll-behavior:auto !important;}
 }
@@ -198,6 +203,8 @@ footer{padding:110px 0 56px; text-align:center;}
     </ul>
   </div>
 </nav>
+
+<canvas id="atv-canvas" aria-hidden="true"></canvas>
 
 <header class="hero">
   <div class="starfield" id="starfield"></div>
@@ -381,19 +388,19 @@ footer{padding:110px 0 56px; text-align:center;}
       <div class="work-row reveal">
         <div class="work-icon">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="5" cy="6" r="2" stroke="var(--teal)" stroke-width="1.4"/>
-            <circle cx="12" cy="12" r="2" stroke="var(--orange)" stroke-width="1.4"/>
-            <circle cx="19" cy="6" r="2" stroke="var(--teal)" stroke-width="1.4"/>
-            <circle cx="12" cy="19" r="2" stroke="var(--teal)" stroke-width="1.4"/>
-            <path d="M6.5 7.3L10.4 10.7M17.5 7.3L13.6 10.7M12 14v3" stroke="var(--muted)" stroke-width="1.2"/>
+            <rect x="4" y="10" width="16" height="6" rx="2" stroke="var(--orange)" stroke-width="1.4"/>
+            <circle cx="7.5" cy="18" r="2" stroke="var(--teal)" stroke-width="1.4"/>
+            <circle cx="16.5" cy="18" r="2" stroke="var(--teal)" stroke-width="1.4"/>
+            <path d="M9 10V7h6v3" stroke="var(--muted)" stroke-width="1.2"/>
+            <path d="M12 3v2" stroke="var(--teal)" stroke-width="1.4" stroke-linecap="round"/>
           </svg>
         </div>
         <div>
-          <div class="work-title">ROS2 + ESP32 Autonomous Obstacle-Avoidance Robot</div>
-          <div class="work-stack">ROS2 · ESP32 WROOM · HC-SR04 · DC Motor</div>
-          <p class="work-explain">A small robot senses what's ahead and decides on its own whether to drive or stop.</p>
-          <p class="work-desc">Four cooperating nodes — sensor → brain → motor → display — with the brain making STOP/RUN calls.</p>
-          <a class="work-link" href="https://github.com/anandgawai123456-glitch/mutil_node_ros2_control_system_launch" target="_blank" rel="noopener">
+          <div class="work-title">ATV UGV — Autonomous Navigation Simulation</div>
+          <div class="work-stack">ROS2 Jazzy · Gazebo · Nav2 · SLAM Toolbox · AMCL · LiDAR · URDF/Xacro</div>
+          <p class="work-explain">An all-terrain unmanned ground vehicle that maps its surroundings, localizes itself, and navigates around obstacles in simulation.</p>
+          <p class="work-desc">Four-wheel ATV model with LiDAR, IMU, and wheel odometry. Scan filtering feeds SLAM Toolbox for mapping and AMCL for localization, with Nav2 handling path planning and local control, built as a foundation for outdoor hardware deployment.</p>
+          <a class="work-link" href="https://github.com/anandgawai123456-glitch/atv-ugv-ros2" target="_blank" rel="noopener">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49 0-.24-.01-.87-.01-1.71-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.05 1.53 1.05.9 1.57 2.36 1.12 2.94.85.09-.67.35-1.12.63-1.38-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.31.1-2.72 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.46.1 2.72.64.72 1.03 1.63 1.03 2.75 0 3.93-2.35 4.8-4.58 5.05.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.6.69.49A10.26 10.26 0 0 0 22 12.25C22 6.58 17.52 2 12 2z"/></svg>
             View repository
           </a>
@@ -436,6 +443,7 @@ footer{padding:110px 0 56px; text-align:center;}
         </div>
         <div class="work-year">2026</div>
       </div>
+
 
     </div>
   </div>
@@ -612,6 +620,460 @@ document.addEventListener('DOMContentLoaded', function(){
   } else {
     items.forEach(function(i){ i.classList.add('in'); });
   }
+
+  // ---------- ATV: top-down UGV that drives the whole page, dodging text + rocks ----------
+  (function(){
+    var cv = document.getElementById('atv-canvas');
+    if(!cv || !cv.getContext) return;
+    if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var ctx = cv.getContext('2d');
+    var TEAL='#49D6C6', ORG='#FF6A2B', MUT='#8C94A3', BG='#0B0D10', PAN='#14171C';
+    var CELL = 12, MARGINS = [38, 30, 22, 16], S = 1.25, MIN_W = 700;
+    var vw = 0, vh = 0, dpr = 1, cols = 0, rows = 0, docW = 0, docH = 0;
+    var textRects = [], rocks = [], masks = {};
+    var path = [], cumMax = [];
+    var idx = 0, hd = 0, rev = false, trav = 0, avoidT = 0, ready = false, first = true;
+
+    function sizeCanvas(){
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      vw = window.innerWidth; vh = window.innerHeight;
+      cv.width = Math.round(vw*dpr); cv.height = Math.round(vh*dpr);
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+    }
+
+    // ---- seeded random ----
+    var seed = 29;
+    function rnd(){ seed = (seed*16807) % 2147483647; return (seed-1)/2147483646; }
+
+    // ---- measure the page: every line of text + a few graphic blocks ----
+    function revealShift(el){
+      var n = 0;
+      while(el && el !== document.body){
+        if(el.classList && el.classList.contains('reveal') && !el.classList.contains('in')) n++;
+        el = el.parentElement;
+      }
+      return n*24;
+    }
+    function collectRects(){
+      var out = [], sy = window.scrollY, sx = window.scrollX;
+      var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+        acceptNode:function(n){
+          if(!n.nodeValue || !n.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+          var p = n.parentElement; if(!p) return NodeFilter.FILTER_REJECT;
+          var tg = p.tagName;
+          if(tg === 'SCRIPT' || tg === 'STYLE' || tg === 'CANVAS') return NodeFilter.FILTER_REJECT;
+          if(p.closest('nav, .marquee, #atv-canvas')) return NodeFilter.FILTER_REJECT;
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      });
+      var range = document.createRange(), node;
+      while((node = walker.nextNode())){
+        var dy = revealShift(node.parentElement);
+        range.selectNodeContents(node);
+        var rs = range.getClientRects();
+        for(var i=0;i<rs.length;i++){
+          var r = rs[i]; if(r.width < 1 || r.height < 1) continue;
+          out.push({x:r.left+sx, y:r.top+sy-dy, w:r.width, h:r.height});
+        }
+      }
+      var blocks = document.querySelectorAll('.btn, .work-icon, .about-visual svg, .skill-row');
+      for(var b=0;b<blocks.length;b++){
+        var q = blocks[b].getBoundingClientRect();
+        out.push({x:q.left+sx, y:q.top+sy-revealShift(blocks[b]), w:q.width, h:q.height});
+      }
+      var rv = document.querySelector('.rover-scene svg');
+      if(rv){
+        var rr = rv.getBoundingClientRect();
+        var sc = Math.min(rr.width/900, rr.height/220);
+        var cx = rr.left + rr.width/2 + 30*sc;
+        out.push({x:cx-165*sc+sx, y:rr.top+sy+10*sc, w:330*sc, h:190*sc});
+      }
+      return out;
+    }
+
+    // ---- occupancy grid ----
+    function paintRect(a, x, y, w, h, m){
+      var x0 = Math.max(0, Math.floor((x-m)/CELL)), x1 = Math.min(cols-1, Math.floor((x+w+m)/CELL));
+      var y0 = Math.max(0, Math.floor((y-m)/CELL)), y1 = Math.min(rows-1, Math.floor((y+h+m)/CELL));
+      for(var j=y0;j<=y1;j++) for(var i=x0;i<=x1;i++) a[j*cols+i] = 1;
+    }
+    function paintCircle(a, cx, cy, r){
+      var x0 = Math.max(0, Math.floor((cx-r)/CELL)), x1 = Math.min(cols-1, Math.floor((cx+r)/CELL));
+      var y0 = Math.max(0, Math.floor((cy-r)/CELL)), y1 = Math.min(rows-1, Math.floor((cy+r)/CELL));
+      for(var j=y0;j<=y1;j++) for(var i=x0;i<=x1;i++){
+        var dx = (i+0.5)*CELL - cx, dy = (j+0.5)*CELL - cy;
+        if(dx*dx + dy*dy <= (r+CELL*0.5)*(r+CELL*0.5)) a[j*cols+i] = 1;
+      }
+    }
+    function getMask(m){
+      if(masks[m]) return masks[m];
+      var a = new Uint8Array(cols*rows), i;
+      for(i=0;i<textRects.length;i++){ var t = textRects[i]; paintRect(a, t.x, t.y, t.w, t.h, m); }
+      for(i=0;i<rocks.length;i++){ var k = rocks[i]; paintCircle(a, k.x, k.y, k.r + m); }
+      masks[m] = a; return a;
+    }
+
+    // ---- A* path planning ----
+    function nearestFree(px, py, blk){
+      var cx = Math.max(0, Math.min(cols-1, Math.floor(px/CELL)));
+      var cy = Math.max(0, Math.min(rows-1, Math.floor(py/CELL)));
+      if(!blk[cy*cols+cx]) return cy*cols+cx;
+      for(var R=1;R<=45;R++){
+        for(var dy=-R;dy<=R;dy++) for(var dx=-R;dx<=R;dx++){
+          if(Math.max(Math.abs(dx),Math.abs(dy)) !== R) continue;
+          var x = cx+dx, y = cy+dy;
+          if(x<0||y<0||x>=cols||y>=rows) continue;
+          if(!blk[y*cols+x]) return y*cols+x;
+        }
+      }
+      return -1;
+    }
+    function astar(s, g, blk){
+      var N = cols*rows, gs = new Float32Array(N); gs.fill(1e9);
+      var came = new Int32Array(N); came.fill(-1);
+      var closed = new Uint8Array(N), hf = [], hi = [];
+      function push(f, i){
+        var k = hf.length; hf.push(f); hi.push(i);
+        while(k > 0){ var p = (k-1) >> 1; if(hf[p] <= f) break; hf[k] = hf[p]; hi[k] = hi[p]; k = p; }
+        hf[k] = f; hi[k] = i;
+      }
+      function pop(){
+        var top = hi[0], lf = hf.pop(), li = hi.pop(), n = hf.length;
+        if(n > 0){
+          var k = 0;
+          while(true){
+            var c = 2*k+1; if(c >= n) break;
+            if(c+1 < n && hf[c+1] < hf[c]) c++;
+            if(hf[c] >= lf) break;
+            hf[k] = hf[c]; hi[k] = hi[c]; k = c;
+          }
+          hf[k] = lf; hi[k] = li;
+        }
+        return top;
+      }
+      var gx = g % cols, gy = (g/cols) | 0;
+      function h(x, y){ var dx = Math.abs(x-gx), dy = Math.abs(y-gy); return dx + dy - 0.586*Math.min(dx,dy); }
+      gs[s] = 0; push(h(s%cols, (s/cols)|0), s);
+      var D = [[1,0,1],[-1,0,1],[0,1,1],[0,-1,1],[1,1,1.414],[1,-1,1.414],[-1,1,1.414],[-1,-1,1.414]];
+      var found = (s === g);
+      while(hf.length && !found){
+        var cur = pop(); if(closed[cur]) continue; closed[cur] = 1;
+        if(cur === g){ found = true; break; }
+        var x = cur % cols, y = (cur/cols) | 0;
+        for(var d=0; d<8; d++){
+          var nx = x + D[d][0], ny = y + D[d][1];
+          if(nx<0||ny<0||nx>=cols||ny>=rows) continue;
+          var ni = ny*cols + nx; if(blk[ni] || closed[ni]) continue;
+          if(D[d][0] !== 0 && D[d][1] !== 0 && (blk[y*cols+nx] || blk[ny*cols+x])) continue;
+          var ng = gs[cur] + D[d][2];
+          if(ng < gs[ni]){ gs[ni] = ng; came[ni] = cur; push(ng + h(nx, ny), ni); }
+        }
+      }
+      if(!found) return null;
+      var out = [], n = g;
+      while(n !== -1){ out.push(n); if(n === s) break; n = came[n]; }
+      return out.reverse();
+    }
+    function los(a, b, blk){
+      var x0 = a % cols, y0 = (a/cols)|0, x1 = b % cols, y1 = (b/cols)|0;
+      var dx = Math.abs(x1-x0), dy = Math.abs(y1-y0), sx = x0<x1?1:-1, sy = y0<y1?1:-1, err = dx-dy;
+      while(true){
+        if(blk[y0*cols+x0]) return false;
+        if(x0 === x1 && y0 === y1) return true;
+        var e2 = 2*err;
+        if(e2 > -dy){ err -= dy; x0 += sx; }
+        if(e2 < dx){ err += dx; y0 += sy; }
+      }
+    }
+    function planLeg(a, b){
+      for(var mi=0; mi<MARGINS.length; mi++){
+        var blk = getMask(MARGINS[mi]);
+        var s = nearestFree(a.x, a.y, blk), g = nearestFree(b.x, b.y, blk);
+        if(s < 0 || g < 0) continue;
+        var cells = astar(s, g, blk);
+        if(!cells) continue;
+        var keep = [cells[0]], i = 0;
+        while(i < cells.length-1){
+          var j = cells.length-1;
+          while(j > i+1 && !los(cells[i], cells[j], blk)) j--;
+          keep.push(cells[j]); i = j;
+        }
+        return keep.map(function(c){ return {x:(c%cols+0.5)*CELL, y:(((c/cols)|0)+0.5)*CELL}; });
+      }
+      return null;
+    }
+    function waypoints(){
+      var pts = [{x:docW*0.86, y:150}];
+      var step = Math.max(520, vh*0.8), y = 150 + step, k = 0;
+      var xs = [0.1, 0.9, 0.14, 0.86, 0.12, 0.88];
+      while(y < docH - 320){ pts.push({x:docW*xs[k%xs.length], y:y}); k++; y += step; }
+      pts.push({x:docW*0.06, y:docH-80});
+      return pts;
+    }
+    function planAll(fails){
+      var wp = waypoints(), poly = [];
+      for(var i=0;i<wp.length-1;i++){
+        var leg = planLeg(wp[i], wp[i+1]);
+        if(!leg){ if(fails) fails.push(i); leg = [wp[i], wp[i+1]]; }
+        for(var j=(i===0?0:1); j<leg.length; j++) poly.push(leg[j]);
+      }
+      return poly;
+    }
+    function smoothResample(poly){
+      var pts = [poly[0]], i;
+      for(i=1;i<poly.length-1;i++){
+        var P = poly[i-1], V = poly[i], N = poly[i+1];
+        var d1 = Math.hypot(V.x-P.x, V.y-P.y), d2 = Math.hypot(N.x-V.x, N.y-V.y);
+        if(d1 < 1 || d2 < 1) continue;
+        var r = Math.min(26, d1*0.45, d2*0.45);
+        var A = {x:V.x+(P.x-V.x)*r/d1, y:V.y+(P.y-V.y)*r/d1};
+        var B = {x:V.x+(N.x-V.x)*r/d2, y:V.y+(N.y-V.y)*r/d2};
+        for(var t=0;t<=8;t++){
+          var u = t/8, a = (1-u)*(1-u), b = 2*u*(1-u), c = u*u;
+          pts.push({x:a*A.x + b*V.x + c*B.x, y:a*A.y + b*V.y + c*B.y});
+        }
+      }
+      pts.push(poly[poly.length-1]);
+      var out = [pts[0]], acc = 0, STEP = 5;
+      for(i=1;i<pts.length;i++){
+        var p0 = out[out.length-1], p1 = pts[i];
+        var d = Math.hypot(p1.x-p0.x, p1.y-p0.y);
+        while(d >= STEP){
+          var f = STEP/d;
+          p0 = {x:p0.x+(p1.x-p0.x)*f, y:p0.y+(p1.y-p0.y)*f};
+          out.push(p0); d = Math.hypot(p1.x-p0.x, p1.y-p0.y);
+        }
+      }
+      return out;
+    }
+
+    // ---- rocks ----
+    function makeRock(x, y, r){
+      var n = 8 + Math.floor(rnd()*3), verts = [];
+      for(var i=0;i<n;i++) verts.push({a:i/n*Math.PI*2 + rnd()*0.3, d:0.72 + rnd()*0.38});
+      var peb = [];
+      for(var q=0;q<3;q++){ var an = rnd()*Math.PI*2, dd = r*(1.15 + rnd()*0.6); peb.push({x:Math.cos(an)*dd, y:Math.sin(an)*dd, r:1.5 + rnd()*2.2}); }
+      return {x:x, y:y, r:r, rot:rnd()*Math.PI*2, verts:verts, peb:peb};
+    }
+    function placeRocks(pre){
+      rocks = [];
+      var acc = 0, next = 260 + rnd()*120, i;
+      for(i=1;i<pre.length;i++){
+        acc += Math.hypot(pre[i].x-pre[i-1].x, pre[i].y-pre[i-1].y);
+        if(acc >= next){
+          var nx = pre[Math.min(pre.length-1,i+1)].x - pre[Math.max(0,i-1)].x;
+          var ny = pre[Math.min(pre.length-1,i+1)].y - pre[Math.max(0,i-1)].y;
+          var L = Math.hypot(nx, ny) || 1, off = (rnd()-0.5)*12;
+          rocks.push(makeRock(pre[i].x - ny/L*off, pre[i].y + nx/L*off, 11 + rnd()*7));
+          acc = 0; next = 300 + rnd()*200;
+        }
+      }
+      masks = {};
+      var base = getMask(20), tries = Math.min(500, Math.floor(docH/12)), added = 0;
+      for(i=0;i<tries && added < 70;i++){
+        var x = 30 + rnd()*(docW-60), y = 90 + rnd()*(docH-180), r = 10 + rnd()*13;
+        var cx = Math.floor(x/CELL), cy = Math.floor(y/CELL);
+        if(base[cy*cols+cx]) continue;
+        var ok = true, k;
+        for(k=0;k<rocks.length && ok;k++) if(Math.hypot(rocks[k].x-x, rocks[k].y-y) < 85) ok = false;
+        for(k=0;k<pre.length && ok;k+=3) if(Math.hypot(pre[k].x-x, pre[k].y-y) < r+60) ok = false;
+        if(ok){ rocks.push(makeRock(x, y, r)); added++; }
+      }
+      masks = {};
+    }
+
+    function build(){
+      try{
+        sizeCanvas();
+        if(vw < MIN_W){ ready = false; return; }
+        S = Math.max(0.6, Math.min(1.25, vw/1100));
+        MARGINS = [Math.round(14*S+24), Math.round(14*S+16), Math.round(14*S+9), Math.round(14*S+4), Math.round(14*S)];
+        docW = document.documentElement.clientWidth;
+        docH = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+        cols = Math.ceil(docW/CELL); rows = Math.ceil(docH/CELL);
+        textRects = collectRects();
+        rocks = []; masks = {};
+        seed = 29;
+        var pre = smoothResample(planAll());
+        placeRocks(pre);
+        var fin, tries = 0;
+        while(true){
+          var fails = [];
+          fin = planAll(fails);
+          if(!fails.length || tries >= 3) break;
+          var wp = waypoints();
+          rocks = rocks.filter(function(k){
+            for(var f=0; f<fails.length; f++){ if(k.y > wp[fails[f]].y - 140 && k.y < wp[fails[f]+1].y + 140) return false; }
+            return true;
+          });
+          masks = {}; tries++;
+        }
+        path = smoothResample(fin);
+        cumMax = []; var m = -1;
+        for(var i=0;i<path.length;i++){ m = Math.max(m, path[i].y); cumMax.push(m); }
+        ready = path.length > 4; first = true;
+      }catch(e){ ready = false; }
+    }
+
+    function findIdx(y){
+      var lo = 0, hi = cumMax.length-1;
+      if(y <= cumMax[0]) return 0;
+      if(y >= cumMax[hi]) return hi;
+      while(lo < hi){ var mid = (lo+hi) >> 1; if(cumMax[mid] >= y) hi = mid; else lo = mid+1; }
+      return lo;
+    }
+    function angDiff(a, b){ var d = b - a; while(d > Math.PI) d -= Math.PI*2; while(d < -Math.PI) d += Math.PI*2; return d; }
+
+    // ---- drawing ----
+    function rockPoly(k, sc, ox, oy){
+      ctx.beginPath();
+      for(var i=0;i<k.verts.length;i++){
+        var v = k.verts[i], px = ox + Math.cos(v.a)*v.d*k.r*sc, py = oy + Math.sin(v.a)*v.d*k.r*sc;
+        if(i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+    }
+    function drawRock(k, sy, hot){
+      ctx.save(); ctx.translate(k.x, k.y - sy); ctx.rotate(k.rot);
+      rockPoly(k, 1, 3, 4); ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fill();
+      rockPoly(k, 1, 0, 0); ctx.fillStyle = '#1B1F26'; ctx.fill();
+      ctx.lineWidth = 1.5; ctx.lineJoin = 'round'; ctx.strokeStyle = hot ? ORG : '#4F5766'; ctx.stroke();
+      rockPoly(k, 0.6, -2, -2); ctx.fillStyle = '#2A303A'; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-k.r*0.1, -k.r*0.5); ctx.lineTo(k.r*0.15, k.r*0.2);
+      ctx.strokeStyle = 'rgba(255,106,43,0.28)'; ctx.lineWidth = 1; ctx.stroke();
+      for(var i=0;i<k.peb.length;i++){
+        var p = k.peb[i]; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+        ctx.fillStyle = '#2A303A'; ctx.fill(); ctx.strokeStyle = '#4F5766'; ctx.lineWidth = 1; ctx.stroke();
+      }
+      ctx.restore();
+    }
+    function tire(x, y, steer, phase){
+      ctx.save(); ctx.translate(x, y); ctx.rotate(steer);
+      ctx.beginPath(); ctx.rect(-7, -3.8, 14, 7.6);
+      ctx.fillStyle = BG; ctx.fill(); ctx.lineWidth = 1.8; ctx.strokeStyle = ORG; ctx.stroke();
+      ctx.lineWidth = 1.3; ctx.strokeStyle = 'rgba(255,106,43,0.8)';
+      for(var k=-2;k<=2;k++){
+        var tx = (((phase + k*5) % 15) + 15) % 15 - 7.5;
+        ctx.beginPath(); ctx.moveTo(tx, -3.4); ctx.lineTo(tx, 3.4); ctx.stroke();
+      }
+      ctx.restore();
+    }
+    function drawATV(x, y, ang, S, steer, t){
+      ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.scale(S, S);
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      // LiDAR fan
+      ctx.beginPath(); ctx.moveTo(-12, 0); ctx.arc(-12, 0, 120, -0.75, 0.75); ctx.closePath();
+      ctx.fillStyle = 'rgba(73,214,198,0.055)'; ctx.fill();
+      var sw = Math.sin(t*4)*0.75;
+      ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(-12 + Math.cos(sw)*120, Math.sin(sw)*120);
+      ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(73,214,198,0.35)'; ctx.stroke();
+      // headlight glow
+      ctx.beginPath(); ctx.moveTo(22, -4); ctx.lineTo(70, -16); ctx.lineTo(70, 16); ctx.lineTo(22, 4); ctx.closePath();
+      ctx.fillStyle = 'rgba(255,106,43,0.07)'; ctx.fill();
+      // shadow
+      ctx.beginPath(); ctx.rect(-21, -10, 44, 22); ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fill();
+      // axles
+      ctx.lineWidth = 2; ctx.strokeStyle = MUT;
+      ctx.beginPath(); ctx.moveTo(-15,-11); ctx.lineTo(-15,11); ctx.moveTo(15,-11); ctx.lineTo(15,11); ctx.stroke();
+      // tyres
+      var ph = trav;
+      tire(-15, -14, 0, ph); tire(-15, 14, 0, ph);
+      tire(15, -14, steer, ph); tire(15, 14, steer, ph);
+      // body
+      ctx.beginPath();
+      ctx.moveTo(-22,-10); ctx.lineTo(12,-10); ctx.lineTo(22,-5); ctx.lineTo(22,5); ctx.lineTo(12,10); ctx.lineTo(-22,10); ctx.closePath();
+      ctx.fillStyle = PAN; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = TEAL; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(7,-9); ctx.lineTo(7,9); ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(73,214,198,0.4)'; ctx.stroke();
+      // seat, tank
+      ctx.beginPath(); ctx.rect(-18,-6,13,12); ctx.fillStyle = '#191D23'; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = MUT; ctx.stroke();
+      ctx.beginPath(); ctx.rect(-2,-5,10,10); ctx.fillStyle = PAN; ctx.fill(); ctx.strokeStyle = ORG; ctx.stroke();
+      // handlebar
+      ctx.beginPath(); ctx.moveTo(11,-15); ctx.lineTo(11,15); ctx.lineWidth = 2.6; ctx.strokeStyle = TEAL; ctx.stroke();
+      ctx.beginPath(); ctx.arc(11,-15,2,0,Math.PI*2); ctx.arc(11,15,2,0,Math.PI*2); ctx.fillStyle = ORG; ctx.fill();
+      // headlights
+      ctx.beginPath(); ctx.arc(22,-4,2.3,0,Math.PI*2); ctx.arc(22,4,2.3,0,Math.PI*2); ctx.fillStyle = ORG; ctx.fill();
+      // LiDAR dome
+      ctx.beginPath(); ctx.arc(-12,0,5,0,Math.PI*2); ctx.fillStyle = BG; ctx.fill(); ctx.lineWidth = 1.6; ctx.strokeStyle = ORG; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-12,0); ctx.lineTo(-12 + Math.cos(t*8)*4.5, Math.sin(t*8)*4.5); ctx.strokeStyle = TEAL; ctx.lineWidth = 1.4; ctx.stroke();
+      ctx.restore();
+    }
+
+    function frame(now){
+      requestAnimationFrame(frame);
+      if(!ready || vw < MIN_W) return;
+      var t = now/1000, sy = window.scrollY;
+      ctx.clearRect(0, 0, vw, vh);
+
+      var tgt = findIdx(sy + vh*0.58);
+      if(first){ idx = tgt; first = false; }
+      var step = Math.max(-16, Math.min(16, (tgt - idx)*0.07));
+      idx += step;
+      var last = path.length - 1, i0 = Math.max(0, Math.min(last-1, Math.floor(idx))), f = idx - i0;
+      var pa = path[i0], pb = path[i0+1];
+      var ax = pa.x + (pb.x-pa.x)*f, ay = pa.y + (pb.y-pa.y)*f;
+      var ta = path[Math.min(last, i0+4)], tb = path[Math.max(0, i0-4)];
+      var tan = Math.atan2(ta.y-tb.y, ta.x-tb.x);
+      if(step < -0.35) rev = true; else if(step > 0.35) rev = false;
+      var want = tan + (rev ? Math.PI : 0), dA = angDiff(hd, want);
+      hd += dA*0.14;
+      var steer = Math.max(-0.5, Math.min(0.5, dA*1.2));
+      trav += step*5;
+
+      // planned route (faint) + tyre trail
+      ctx.save();
+      ctx.setLineDash([4, 9]); ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(73,214,198,0.17)';
+      ctx.beginPath(); var pen = false;
+      for(var i=0;i<path.length;i+=2){
+        var py = path[i].y - sy;
+        if(py < -30 || py > vh+30){ pen = false; continue; }
+        if(!pen){ ctx.moveTo(path[i].x, py); pen = true; } else ctx.lineTo(path[i].x, py);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(73,214,198,0.3)';
+      ctx.beginPath();
+      var from = Math.max(0, Math.floor(idx) - 70);
+      for(var q=from; q<=Math.floor(idx); q++){ if(q === from) ctx.moveTo(path[q].x, path[q].y - sy); else ctx.lineTo(path[q].x, path[q].y - sy); }
+      ctx.stroke();
+      ctx.restore();
+
+      // rocks
+      var near = false;
+      for(var r=0;r<rocks.length;r++){
+        var k = rocks[r], ky = k.y - sy;
+        if(ky < -60 || ky > vh+60) continue;
+        var dist = Math.hypot(k.x-ax, k.y-ay);
+        var hot = dist < k.r + 95;
+        if(dist < k.r + 70) near = true;
+        drawRock(k, sy, hot);
+      }
+      // text ahead?
+      var raw = getMask(0);
+      var gx = Math.floor((ax + Math.cos(tan)*(rev?-38:38))/CELL), gy = Math.floor((ay + Math.sin(tan)*(rev?-38:38))/CELL);
+      for(var dy=-2; dy<=2 && !near; dy++) for(var dx=-2; dx<=2; dx++){
+        var cx = gx+dx, cy = gy+dy;
+        if(cx>=0 && cy>=0 && cx<cols && cy<rows && raw[cy*cols+cx]){ near = true; break; }
+      }
+      if(near) avoidT = 40; else if(avoidT > 0) avoidT--;
+
+      drawATV(ax, ay - sy, hd, S, steer, t);
+
+      var msg = 'UGV · NAV: ' + (avoidT > 0 ? 'OBSTACLE — AVOIDING' : 'PATH CLEAR');
+      ctx.font = '10px "JetBrains Mono", monospace'; ctx.textAlign = 'right';
+      var tw = ctx.measureText(msg).width;
+      ctx.fillStyle = 'rgba(11,13,16,0.92)'; ctx.fillRect(vw - 16 - tw - 10, vh - 34, tw + 20, 22);
+      ctx.lineWidth = 1; ctx.strokeStyle = avoidT > 0 ? ORG : '#262B33'; ctx.strokeRect(vw - 16 - tw - 10 + 0.5, vh - 34 + 0.5, tw + 19, 21);
+      ctx.fillStyle = avoidT > 0 ? ORG : MUT;
+      ctx.fillText(msg, vw - 16, vh - 19);
+    }
+
+    var rt = null;
+    function rebuildSoon(){ clearTimeout(rt); rt = setTimeout(build, 250); }
+    window.addEventListener('resize', rebuildSoon);
+    window.addEventListener('load', function(){ build(); setTimeout(build, 1200); });
+    if(document.fonts && document.fonts.ready) document.fonts.ready.then(build);
+    build();
+    requestAnimationFrame(frame);
+  })();
 });
 </script>
 
